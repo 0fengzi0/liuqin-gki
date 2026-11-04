@@ -193,7 +193,12 @@ jobs:
             out/.config
 
       - name: KMI check against device module baseline
-        continue-on-error: true
+        # this is the safety gate: any mismatch means the kernel must not be
+        # flashed to the device (vendor modules would refuse to load).
+        # 2026-11-05 verdict: pure-ACK builds mismatch ~56% of the contract
+        # because Xiaomi's shipped GKI kernel carries unpublished private
+        # patches; the check stays strict so any future source that closes
+        # the gap gets caught here automatically.
         run: python3 scripts/check-kmi.py out/Module.symvers baseline/symbol-crcs.json --report kmi-report.json
 
       - name: Pack boot.img with stock header parameters
