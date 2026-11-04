@@ -147,12 +147,19 @@ jobs:
               echo "profile: stock" >> lto-note.txt
               ;;
           esac
-          # olddefconfig re-probes the compiler for hidden CC_IS_* symbols and
-          # re-evaluates every cc-dependent selection; it MUST run under the
-          # same clang toolchain as the build or the config (and symbol CRCs)
-          # silently diverge from the device's
-          PATH="$HOME/clang/bin:$PATH" make -C kernel O="$PWD/out" ARCH=arm64 \
-            LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
+          # olddefconfig re-probes the compiler for hidden CC_IS_*/HAS_LTO_CLANG
+          # symbols; Kconfig $(success,...) probes expand make variables from
+          # the ENVIRONMENT only (LLVM, LLVM_IAS, NM, AR...), so everything
+          # must be exported or HAS_LTO_CLANG silently fails and LTO+CFI turn
+          # off, shifting every symbol CRC away from the device contract
+          export PATH="$HOME/clang/bin:$PATH"
+          export LLVM=1 LLVM_IAS=1
+          export CC=clang CXX=clang++ HOSTCC=clang HOSTCXX=clang++ HOSTLD=ld.lld
+          export AR=llvm-ar NM=llvm-nm STRIP=llvm-strip \
+            OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump READELF=llvm-readelf \
+            OBJCOPYFLAGS= LD=ld.lld
+          make -C kernel O="$PWD/out" ARCH=arm64 LLVM=1 \
+            CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
           diff -u config/running.config out/.config > config-drift.diff || true
           echo "config drift lines: $(wc -l < config-drift.diff)"
           head -60 config-drift.diff
