@@ -156,8 +156,12 @@ jobs:
         run: |
           export PATH="$HOME/clang/bin:$PATH"
           set -o pipefail
+          # -Wframe-larger-than estimates stack frames at compile time, which
+          # differs between thin and full LTO inlining; stock (full LTO) never
+          # saw these warnings, so silence just that diagnostic under thin LTO
           make -j"$(nproc)" -C kernel O="$PWD/out" ARCH=arm64 LLVM=1 \
-            CROSS_COMPILE=aarch64-linux-gnu- Image 2>&1 | tee build.log
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            KCFLAGS=-Wno-frame-larger-than Image 2>&1 | tee build.log
           ls -la out/arch/arm64/boot/Image out/Module.symvers
 
       - name: KMI check against device module baseline
