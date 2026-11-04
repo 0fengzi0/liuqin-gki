@@ -147,7 +147,12 @@ jobs:
               echo "profile: stock" >> lto-note.txt
               ;;
           esac
-          make -C kernel O="$PWD/out" ARCH=arm64 olddefconfig
+          # olddefconfig re-probes the compiler for hidden CC_IS_* symbols and
+          # re-evaluates every cc-dependent selection; it MUST run under the
+          # same clang toolchain as the build or the config (and symbol CRCs)
+          # silently diverge from the device's
+          PATH="$HOME/clang/bin:$PATH" make -C kernel O="$PWD/out" ARCH=arm64 \
+            LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
           diff -u config/running.config out/.config > config-drift.diff || true
           echo "config drift lines: $(wc -l < config-drift.diff)"
           head -60 config-drift.diff
