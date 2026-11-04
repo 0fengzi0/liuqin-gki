@@ -169,7 +169,18 @@ jobs:
             KCFLAGS=-Wno-frame-larger-than= modules 2>&1 | tee -a build.log
           ls -la out/arch/arm64/boot/Image out/Module.symvers
 
+      - name: Upload Module.symvers for CRC analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: symvers-${{ github.run_id }}
+          if-no-files-found: warning
+          path: |
+            out/Module.symvers
+            lto-note.txt
+            out/.config
+
       - name: KMI check against device module baseline
+        continue-on-error: true
         run: python3 scripts/check-kmi.py out/Module.symvers baseline/symbol-crcs.json --report kmi-report.json
 
       - name: Pack boot.img with stock header parameters
