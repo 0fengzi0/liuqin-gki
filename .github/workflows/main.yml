@@ -171,6 +171,7 @@ jobs:
 
       - name: Upload Module.symvers for CRC analysis
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: symvers-${{ github.run_id }}
           if-no-files-found: warning
