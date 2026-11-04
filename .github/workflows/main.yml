@@ -162,6 +162,11 @@ jobs:
           make -j"$(nproc)" -C kernel O="$PWD/out" ARCH=arm64 LLVM=1 \
             CROSS_COMPILE=aarch64-linux-gnu- \
             KCFLAGS=-Wno-frame-larger-than= Image 2>&1 | tee build.log
+          # modules build runs modpost, which assembles Module.symvers
+          # (vmlinux symbol CRC table) — required by the KMI check
+          make -j"$(nproc)" -C kernel O="$PWD/out" ARCH=arm64 LLVM=1 \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            KCFLAGS=-Wno-frame-larger-than= modules 2>&1 | tee -a build.log
           ls -la out/arch/arm64/boot/Image out/Module.symvers
 
       - name: KMI check against device module baseline
