@@ -88,10 +88,29 @@ jobs:
           git checkout --detach 34bc8bfb493401f7aadbd3b434f9fbfa521e9301
           test -f mkbootimg.py
 
+      - name: Generate KMI whitelist from device module baseline
+        run: |
+          mkdir -p out
+          # CONFIG_TRIM_UNUSED_KSYMS keeps only exported symbols that are used;
+          # the whitelist decides what survives trimming. Xiaomi's device config
+          # points at their build machine, so regenerate it from OUR ground
+          # truth: every symbol the 353 device modules import or provide.
+          python3 - <<'EOF'
+          import json
+          b = json.load(open('baseline/symbol-crcs.json'))
+          syms = set(b['symbols']) | set(b.get('providers', {}))
+          with open('out/abi_symbollist.raw', 'w') as f:
+              f.write('\n'.join(sorted(syms)) + '\n')
+          print(f'whitelist symbols: {len(syms)}')
+          EOF
+
       - name: Configure from device running.config
         run: |
           mkdir out
           cp config/running.config out/.config
+          # Xiaomi's build-machine path is baked into the device config; point
+          # it at the whitelist generated from the module baseline instead
+          sed -i "s|^CONFIG_UNUSED_KSYMS_WHITELIST=.*|CONFIG_UNUSED_KSYMS_WHITELIST=\"$PWD/out/abi_symbollist.raw\"|" out/.config
           if [ "${{ inputs.lto }}" = "thin" ]; then
             ./kernel/scripts/config --file out/.config \
               -d LTO_CLANG_FULL -e LTO_CLANG_THIN
