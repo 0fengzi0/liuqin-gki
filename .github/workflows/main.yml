@@ -26,6 +26,14 @@ on:
         options:
           - thin
           - full
+      profile:
+        description: "config profile: stock / perf (UBSAN off, type-neutral) / experiment (KASAN off, expected KMI fail)"
+        type: choice
+        default: stock
+        options:
+          - stock
+          - perf
+          - experiment
 
 jobs:
   build:
@@ -118,6 +126,22 @@ jobs:
           else
             echo "LTO: full (stock)" | tee lto-note.txt
           fi
+          # profile tuning; anything that changes exported type signatures
+          # (KASAN, DEBUG_LIST, SCHEDSTATS, ...) is locked by the vendor
+          # module CRC contract and must stay at stock values
+          case "${{ inputs.profile }}" in
+            perf)
+              ./kernel/scripts/config --file out/.config -d UBSAN
+              echo "profile: perf (UBSAN off; no exported type layout change)" >> lto-note.txt
+              ;;
+            experiment)
+              ./kernel/scripts/config --file out/.config -d KASAN -d UBSAN
+              echo "profile: experiment (KASAN+UBSAN off; kmem_cache_* CRCs expected to shift)" >> lto-note.txt
+              ;;
+            *)
+              echo "profile: stock" >> lto-note.txt
+              ;;
+          esac
           make -C kernel O="$PWD/out" ARCH=arm64 olddefconfig
           diff -u config/running.config out/.config > config-drift.diff || true
           echo "config drift lines: $(wc -l < config-drift.diff)"
