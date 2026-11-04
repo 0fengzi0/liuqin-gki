@@ -170,8 +170,7 @@ jobs:
           ls -la out/arch/arm64/boot/Image out/Module.symvers
 
       - name: KMI check against device module baseline
-        run: python3 scripts/check-kmi.py out/Module.symvers \
-               baseline/symbol-crcs.json --report kmi-report.json
+        run: python3 scripts/check-kmi.py out/Module.symvers baseline/symbol-crcs.json --report kmi-report.json
 
       - name: Pack boot.img with stock header parameters
         run: |
