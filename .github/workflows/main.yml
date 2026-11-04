@@ -70,6 +70,11 @@ jobs:
           grep -q '^12\.0\.5$' clang-r416183b/AndroidVersion.txt
           ln -s "$PWD/clang-r416183b" "$HOME/clang"
           "$HOME/clang/bin/clang" --version
+          # CROSS_COMPILE prefix supplies the clang --target triple; the gcc
+          # binary itself is not invoked under LLVM=1 but must exist for the
+          # tool resolution paths
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-aarch64-linux-gnu
 
       - name: Checkout pinned ACK common (5.10.236 / android12-9)
         run: |
@@ -151,7 +156,8 @@ jobs:
         run: |
           export PATH="$HOME/clang/bin:$PATH"
           set -o pipefail
-          make -j"$(nproc)" -C kernel O="$PWD/out" ARCH=arm64 LLVM=1 Image 2>&1 | tee build.log
+          make -j"$(nproc)" -C kernel O="$PWD/out" ARCH=arm64 LLVM=1 \
+            CROSS_COMPILE=aarch64-linux-gnu- Image 2>&1 | tee build.log
           ls -la out/arch/arm64/boot/Image out/Module.symvers
 
       - name: KMI check against device module baseline
