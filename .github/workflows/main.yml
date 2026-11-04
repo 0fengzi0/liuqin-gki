@@ -6,7 +6,7 @@ name: build-gki
 #
 # Everything is pinned:
 #   kernel  fb24cf99ad973cd4c7c7fa375c6053f939ef3a89 (5.10.236, android12-9)
-#   clang   r416183b  (sha256 d84acd11... as distributed by Google)
+#   clang   r416183b  (git-pinned at 6e3223f7..., version-checked 12.0.5)
 #   config  running.config pulled from the device via /proc/config.gz
 #
 # LTO note: the stock config pins CONFIG_LTO_CLANG_FULL. Full LTO + KASAN +
@@ -44,12 +44,23 @@ jobs:
 
       - name: Install pinned Android clang r416183b
         run: |
-          curl -sfL \
-            "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/6e3223f76384455acde43affde3df0ea9df66c0d/clang-r416183b.tar.gz" \
-            -o clang.tar.gz
-          echo "d84acd1183f49d25d7d54b4f8b01675a677aa531b53a87cce2c4919ac5ea56a8  clang.tar.gz" | sha256sum -c -
-          mkdir -p "$HOME/clang"
-          tar -xzf clang.tar.gz -C "$HOME/clang"
+          # googlesource +archive tarballs are not byte-stable; use git so the
+          # pinned commit hash itself guarantees integrity
+          git init "$HOME/clang-repo"
+          cd "$HOME/clang-repo"
+          git remote add origin https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86
+          git config core.sparseCheckout true
+          mkdir -p .git/info
+          echo 'clang-r416183b/' > .git/info/sparse-checkout
+          if ! git fetch --depth=1 origin 6e3223f76384455acde43affde3df0ea9df66c0d; then
+            echo "sha fetch rejected; falling back to full branch fetch"
+            git fetch --no-tags origin master-kernel-build-2021
+          fi
+          git checkout --detach 6e3223f76384455acde43affde3df0ea9df66c0d
+          test "$(git rev-parse HEAD)" = "6e3223f76384455acde43affde3df0ea9df66c0d"
+          test -x clang-r416183b/bin/clang
+          grep -q '^12\.0\.5$' clang-r416183b/AndroidVersion.txt
+          ln -s "$PWD/clang-r416183b" "$HOME/clang"
           "$HOME/clang/bin/clang" --version
 
       - name: Checkout pinned ACK common (5.10.236 / android12-9)
@@ -68,8 +79,14 @@ jobs:
 
       - name: Checkout pinned mkbootimg
         run: |
-          git clone --depth=1 --branch master-kernel-build-2021 \
-            https://android.googlesource.com/platform/system/tools/mkbootimg mkbootimg
+          git init mkbootimg
+          cd mkbootimg
+          git remote add origin https://android.googlesource.com/platform/system/tools/mkbootimg
+          if ! git fetch --depth=1 origin 34bc8bfb493401f7aadbd3b434f9fbfa521e9301; then
+            git fetch --no-tags origin master-kernel-build-2021
+          fi
+          git checkout --detach 34bc8bfb493401f7aadbd3b434f9fbfa521e9301
+          test -f mkbootimg.py
 
       - name: Configure from device running.config
         run: |
