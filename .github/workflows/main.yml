@@ -114,7 +114,7 @@ jobs:
 
       - name: Configure from device running.config
         run: |
-          mkdir out
+          mkdir -p out
           cp config/running.config out/.config
           # Xiaomi's build-machine path is baked into the device config; point
           # it at the whitelist generated from the module baseline instead
